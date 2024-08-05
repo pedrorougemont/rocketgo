@@ -6,3 +6,4 @@ go run .\cmd\tools\terndotenv\main.go
 go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
 sqlc generate -f .\internal\store\pgstore\sqlc.yml
 go generate ./...
+go install github.com/go-chi/chi/v5 
