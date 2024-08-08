@@ -7,3 +7,6 @@ go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
 sqlc generate -f .\internal\store\pgstore\sqlc.yml
 go generate ./...
 go install github.com/go-chi/chi/v5 
+go get github.com/go-chi/cors
+go get github.com/gorilla/websocket
+go run .\cmd\rocketgo\main.go
