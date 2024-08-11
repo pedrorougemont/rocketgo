@@ -2,18 +2,13 @@ package api
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
-	"log/slog"
 	"net/http"
 	"sync"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
-	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/jackc/pgx/v5"
 	"github.com/pedrorougemont/rocketgo/internal/store/pgstore"
 )
 
@@ -73,82 +68,4 @@ func NewHandler(q *pgstore.Queries) http.Handler {
 
 	a.r = r
 	return a
-}
-
-func (h apiHandler) handleCreateRoom(w http.ResponseWriter, r *http.Request) {
-	type _body struct {
-		Theme string `json:"theme"`
-	}
-	var body _body
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		http.Error(w, "invalid json payload", http.StatusBadRequest)
-		return
-	}
-
-	roomID, err := h.q.InsertRoom(r.Context(), body.Theme)
-	if err != nil {
-		slog.Error("failed to insert room", "error", err)
-		http.Error(w, "something went wrong", http.StatusInternalServerError)
-		return
-	}
-
-	type response struct {
-		ID string `json:"id"`
-	}
-
-	data, _ := json.Marshal(response{ID: roomID.String()})
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(data)
-}
-
-func (h apiHandler) handleGetRooms(w http.ResponseWriter, r *http.Request)               {}
-func (h apiHandler) handleCreateRoomMessage(w http.ResponseWriter, r *http.Request)      {}
-func (h apiHandler) handleGetRoomMessages(w http.ResponseWriter, r *http.Request)        {}
-func (h apiHandler) handleGetRoomMessage(w http.ResponseWriter, r *http.Request)         {}
-func (h apiHandler) handleReactToMessage(w http.ResponseWriter, r *http.Request)         {}
-func (h apiHandler) handleRemoveReactFromMessage(w http.ResponseWriter, r *http.Request) {}
-func (h apiHandler) handleMarkMessageAsAnswered(w http.ResponseWriter, r *http.Request)  {}
-
-func (h apiHandler) handleSubscribeRoom(w http.ResponseWriter, r *http.Request) {
-	rawRoomID := chi.URLParam(r, "room_id")
-	roomID, err := uuid.Parse(rawRoomID)
-	if err != nil {
-		http.Error(w, "invalid room id", http.StatusBadRequest)
-	}
-
-	_, err = h.q.GetRoom(r.Context(), roomID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			http.Error(w, "room not found", http.StatusBadRequest)
-			return
-		}
-
-		http.Error(w, "something went wrong", http.StatusInternalServerError)
-		return
-	}
-
-	c, err := h.upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		slog.Warn("failed to upgrade connection", "error", err)
-		http.Error(w, "failed to upgrade to ws connection", http.StatusBadRequest)
-		return
-	}
-
-	defer c.Close()
-
-	ctx, cancel := context.WithCancel(r.Context())
-
-	h.mu.Lock()
-	if _, ok := h.subscribers[rawRoomID]; !ok {
-		h.subscribers[rawRoomID] = make(map[*websocket.Conn]context.CancelFunc)
-	}
-	slog.Info("new client connected", "room_id", rawRoomID, "client_ip", r.RemoteAddr)
-	h.subscribers[rawRoomID][c] = cancel
-	h.mu.Unlock()
-
-	<-ctx.Done()
-
-	h.mu.Lock()
-	delete(h.subscribers[rawRoomID], c)
-	h.mu.Unlock()
 }

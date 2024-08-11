@@ -47,6 +47,21 @@ func (q *Queries) GetRoom(ctx context.Context, id uuid.UUID) (Room, error) {
 	return i, err
 }
 
+const getRoomByTheme = `-- name: GetRoomByTheme :one
+SELECT
+    "id", "theme"
+FROM rooms
+WHERE 
+    theme = $1
+`
+
+func (q *Queries) GetRoomByTheme(ctx context.Context, theme string) (Room, error) {
+	row := q.db.QueryRow(ctx, getRoomByTheme, theme)
+	var i Room
+	err := row.Scan(&i.ID, &i.Theme)
+	return i, err
+}
+
 const getRoomMessages = `-- name: GetRoomMessages :many
 SELECT
     "id", "room_id", "message", "reaction_count", "answered"

@@ -5,6 +5,13 @@ FROM rooms
 WHERE 
     id = $1;
 
+-- name: GetRoomByTheme :one
+SELECT
+    "id", "theme"
+FROM rooms
+WHERE 
+    theme = $1;
+
 -- name: GetRooms :many
 SELECT
     "id", "theme"
